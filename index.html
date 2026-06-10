@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>お題発表ルーレット 🎰</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    height: 100%;
+    font-family: "Yu Gothic UI", "Meiryo", sans-serif;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  body {
+    background: linear-gradient(135deg, #2a0845, #6441A5, #1a2980, #6441A5, #2a0845);
+    background-size: 400% 400%;
+    animation: bgShift 12s ease infinite;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  @keyframes bgShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  h1 {
+    font-size: clamp(24px, 4vw, 46px);
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: #fff;
+    text-shadow:
+      0 0 6px #fff,
+      0 0 14px #ff00de,
+      0 0 28px #ff00de,
+      0 0 42px #ff00de;
+    animation: neon 1.4s ease-in-out infinite alternate;
+  }
+  @keyframes neon {
+    from { text-shadow: 0 0 6px #fff, 0 0 14px #ff00de, 0 0 28px #ff00de, 0 0 42px #ff00de; }
+    to   { text-shadow: 0 0 8px #fff, 0 0 20px #00e5ff, 0 0 36px #00e5ff, 0 0 60px #00e5ff; }
+  }
+  h1 .sub { display:block; font-size:0.4em; font-weight:600; opacity:0.85; margin-top:6px; letter-spacing:0.3em; color:#ffe680; text-shadow:0 0 8px #ffb000;}
+
+  .stage {
+    position: relative;
+    width: min(86vmin, 880px);
+    height: min(86vmin, 880px);
+  }
+  .pointer {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 26px solid transparent;
+    border-right: 26px solid transparent;
+    border-top: 50px solid #ff2d55;
+    filter: drop-shadow(0 0 6px #ff2d55) drop-shadow(0 0 14px #ff2d55);
+    z-index: 12;
+    animation: pointerPulse 0.7s ease-in-out infinite alternate;
+  }
+  @keyframes pointerPulse {
+    from { filter: drop-shadow(0 0 6px #ff2d55) drop-shadow(0 0 14px #ff2d55); }
+    to   { filter: drop-shadow(0 0 10px #ffd33d) drop-shadow(0 0 24px #ffd33d); }
+  }
+  canvas#wheel {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .center-btn {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 19%; height: 19%;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    background: radial-gradient(circle at 35% 30%, #ff7eb3, #ff2d55 55%, #b8002e);
+    color: #fff;
+    font-size: clamp(13px, 2.3vmin, 21px);
+    font-weight: 900;
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    box-shadow: 0 0 14px #ff2d55, 0 0 30px #ff2d55, inset 0 2px 6px rgba(255,255,255,0.6);
+    z-index: 11;
+    animation: btnPulse 0.9s ease-in-out infinite alternate;
+  }
+  @keyframes btnPulse {
+    from { box-shadow: 0 0 14px #ff2d55, 0 0 30px #ff2d55, inset 0 2px 6px rgba(255,255,255,0.6); transform: translate(-50%,-50%) scale(1); }
+    to   { box-shadow: 0 0 22px #ffd33d, 0 0 50px #ffd33d, inset 0 2px 6px rgba(255,255,255,0.7); transform: translate(-50%,-50%) scale(1.06); }
+  }
+  .center-btn:active { transform: translate(-50%, -50%) scale(0.92); }
+  .center-btn:disabled { animation: none; opacity: 0.7; cursor: default; }
+
+  .result {
+    min-height: 1.3em;
+    font-size: clamp(18px, 2.8vw, 30px);
+    font-weight: 800;
+    text-align: center;
+    padding: 0 20px;
+    color: #ffe680;
+    text-shadow: 0 0 8px #ffb000, 0 2px 10px rgba(0,0,0,0.6);
+  }
+  .hint { font-size: 13px; opacity: 0.6; text-align:center; }
+
+  /* 結果オーバーレイ */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(10, 2, 30, 0.92);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 26px; z-index: 100;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s ease;
+    overflow: hidden;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .overlay .ov-label {
+    font-size: clamp(22px, 4vw, 48px);
+    font-weight: 900; color: #ffd33d;
+    letter-spacing: 0.15em;
+    text-shadow: 0 0 10px #ffb000, 0 0 24px #ff8a00;
+    animation: neon2 1s ease-in-out infinite alternate;
+  }
+  @keyframes neon2 {
+    from { text-shadow: 0 0 10px #ffb000, 0 0 24px #ff8a00; }
+    to   { text-shadow: 0 0 16px #fff, 0 0 36px #ffd33d; }
+  }
+  .overlay .ov-topic {
+    font-size: clamp(36px, 8.5vw, 104px);
+    font-weight: 900; color: #fff; text-align: center;
+    line-height: 1.25; padding: 0 5vw;
+    text-shadow: 0 0 12px #ff00de, 0 0 30px #ff00de, 0 4px 24px rgba(0,0,0,0.7);
+    position: relative; z-index: 2;
+  }
+  .overlay.show .ov-topic { animation: bigpop 0.55s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes bigpop {
+    0% { transform: scale(0.3) rotate(-6deg); opacity: 0; }
+    60% { transform: scale(1.12) rotate(2deg); }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  .overlay .ov-list {
+    display: none; flex-direction: column; gap: 14px;
+    position: relative; z-index: 2;
+    animation: bigpop 0.6s cubic-bezier(.2,1.3,.4,1);
+  }
+  .overlay .ov-list div {
+    display: flex; align-items: center; gap: 16px;
+    font-size: clamp(20px, 3.4vw, 40px); font-weight: 800; color: #fff;
+    text-shadow: 0 0 8px rgba(0,0,0,0.6);
+  }
+  .overlay .ov-list span {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.5em; height: 1.5em; flex: none; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ffe680, #ffb000 60%, #d98a00);
+    color: #5a3b00; font-size: 0.85em;
+    box-shadow: 0 0 12px #ffd000;
+  }
+  .overlay .ov-close { font-size: 16px; opacity: 0.6; margin-top: 6px; position:relative; z-index:2;}
+  /* フラッシュ */
+  .flash {
+    position: fixed; inset: 0; background: #fff;
+    z-index: 99; opacity: 0; pointer-events: none;
+  }
+  .flash.go { animation: flashAnim 0.5s ease-out; }
+  @keyframes flashAnim { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+  canvas#confetti {
+    position: fixed; inset: 0; width: 100%; height: 100%;
+    z-index: 101; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+  <h1>お題発表ルーレット<span class="sub">🎰 全体会議 🎰</span></h1>
+
+  <div class="stage">
+    <div class="pointer"></div>
+    <canvas id="wheel" width="880" height="880"></canvas>
+    <button class="center-btn" id="spinBtn">START</button>
+  </div>
+
+  <div class="result" id="result"></div>
+  <div class="hint">中央のボタン / 画面クリック / スペースキーで回ります</div>
+
+  <div class="flash" id="flash"></div>
+  <div class="overlay" id="overlay">
+    <div class="ov-label">🎯 お題はこれ！</div>
+    <div class="ov-topic" id="ovTopic"></div>
+    <div class="ov-list" id="ovList"></div>
+    <div class="ov-close">クリック / スペースキーで閉じる</div>
+  </div>
+  <canvas id="confetti"></canvas>
+
+<script>
+// ===== お題マスター（prob=当たり割合 / splits=広い・狭いマスの相対サイズ）=====
+const ITEMS = [
+  { label: "最近改善したこと\n小さく変えたこと", full: "最近改善したこと・小さく変えたこと", color: "#ff3b6b", glow: "#ff3b6b", prob: 4, splits: [5, 2, 2] },
+  { label: "仕事で大事に\nしていること",       full: "自分が仕事で大事にしていること・こだわり", color: "#1e9bff", glow: "#1e9bff", prob: 4, splits: [5, 2, 2] },
+  { label: "会社の人の\n良さを感じた瞬間",     full: "最近、会社の人の良さを感じた瞬間",       color: "#2ed573", glow: "#2ed573", prob: 4, splits: [5, 2, 2] },
+  { label: "★ぜんぶ★",                         full: "全部！この3つすべてについて話してください", title: "🎉 ぜんぶ！ 🎉",
+    all: ["最近改善したこと・小さく変えたこと", "自分が仕事で大事にしていること・こだわり", "最近、会社の人の良さを感じた瞬間"],
+    color: "#ffd000", glow: "#ffd000", prob: 3, splits: [4, 2] },
+];
+
+function buildSegments() {
+  const totalProb = ITEMS.reduce((s, it) => s + it.prob, 0);
+  const buckets = ITEMS.map((it, idx) => {
+    const itemAngle = (it.prob / totalProb) * Math.PI * 2;
+    const splitSum = it.splits.reduce((a, b) => a + b, 0);
+    return it.splits.map(s => ({ item: idx, angle: itemAngle * (s / splitSum) }));
+  });
+  const counts = buckets.map(b => b.length);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const order = [];
+  let prev = -1;
+  for (let n = 0; n < total; n++) {
+    let pick = -1, best = -1;
+    for (let i = 0; i < counts.length; i++) {
+      if (i === prev || counts[i] === 0) continue;
+      if (counts[i] > best) { best = counts[i]; pick = i; }
+    }
+    if (pick === -1) { for (let i = 0; i < counts.length; i++) if (counts[i] > 0) { pick = i; break; } }
+    order.push(pick); counts[pick]--; prev = pick;
+  }
+  const pools = buckets.map(b => b.slice());
+  pools.forEach(shuffle);
+  return order.map(idx => pools[idx].shift());
+}
+function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } }
+
+// リロードのたびに各お題の割合(prob)をランダム決定。
+// たまに「どれか1つが極端に大きい」偏りバージョンも発生させる。
+function randomizeProbs() {
+  const r = (a, b) => a + Math.random() * (b - a);
+  const roll = Math.random();
+  if (roll < 0.22) {
+    // 超かたより：1つだけ巨大、残りは極小（約22%）
+    const big = Math.floor(Math.random() * ITEMS.length);
+    ITEMS.forEach((it, i) => { it.prob = (i === big) ? r(11, 18) : r(0.8, 2); });
+  } else if (roll < 0.45) {
+    // ややかたより：1つが大きめ（約23%）
+    const big = Math.floor(Math.random() * ITEMS.length);
+    ITEMS.forEach((it, i) => { it.prob = (i === big) ? r(6, 9) : r(2, 4); });
+  } else {
+    // 通常：ほどよくバラける（約55%）
+    ITEMS.forEach(it => { it.prob = r(2.5, 6); });
+  }
+}
+randomizeProbs();
+
+const SEGMENTS = buildSegments();
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const SIZE = canvas.width;
+const CENTER = SIZE / 2;
+const LAMP_R = CENTER - 14;          // 電飾リング半径
+const RADIUS = CENTER - 40;          // 盤面半径（電飾の内側）
+
+let currentAngle = 0;
+let spinning = false;
+
+// ===== 盤面の静止部分をオフスクリーンに一度だけ描画（毎フレームのグラデ生成を回避）=====
+const wheelCanvas = document.createElement("canvas");
+wheelCanvas.width = SIZE; wheelCanvas.height = SIZE;
+const wctx = wheelCanvas.getContext("2d");
+function renderWheelStatic() {
+  wctx.clearRect(0, 0, SIZE, SIZE);
+  wctx.beginPath();
+  wctx.arc(CENTER, CENTER, LAMP_R + 6, 0, Math.PI * 2);
+  wctx.fillStyle = "#12012e";
+  wctx.fill();
+  let acc = 0;
+  for (const seg of SEGMENTS) {
+    const item = ITEMS[seg.item];
+    const start = acc, end = acc + seg.angle;
+    const grad = wctx.createRadialGradient(CENTER, CENTER, RADIUS * 0.15, CENTER, CENTER, RADIUS);
+    grad.addColorStop(0, shade(item.color, 0.55));
+    grad.addColorStop(0.6, item.color);
+    grad.addColorStop(1, shade(item.color, 1.25));
+    wctx.beginPath();
+    wctx.moveTo(CENTER, CENTER);
+    wctx.arc(CENTER, CENTER, RADIUS, start, end);
+    wctx.closePath();
+    wctx.fillStyle = grad;
+    wctx.fill();
+    wctx.lineWidth = 3;
+    wctx.strokeStyle = "rgba(255,255,255,0.9)";
+    wctx.stroke();
+    wctx.save();
+    wctx.translate(CENTER, CENTER);
+    wctx.rotate(start + seg.angle / 2);
+    wctx.textAlign = "right";
+    wctx.fillStyle = item.color === "#ffd000" ? "#5a3b00" : "#fff";
+    const arc = seg.angle * RADIUS;
+    const fs = Math.max(16, Math.min(30, arc / 6));
+    wctx.font = "900 " + fs + "px 'Yu Gothic UI', 'Meiryo', sans-serif";
+    wctx.shadowColor = "rgba(0,0,0,0.5)";
+    wctx.shadowBlur = 3;
+    drawMultiline(wctx, item.label, RADIUS - 16, fs + 2);
+    wctx.restore();
+    acc += seg.angle;
+  }
+  wctx.beginPath();
+  wctx.arc(CENTER, CENTER, RADIUS * 0.17, 0, Math.PI * 2);
+  wctx.fillStyle = "#1a0540";
+  wctx.fill();
+  wctx.lineWidth = 4; wctx.strokeStyle = "#ffd33d"; wctx.stroke();
+}
+
+// ===== 毎フレーム：盤面を回転して貼り付け＋電飾だけ動的描画 =====
+function drawWheel(now) {
+  ctx.clearRect(0, 0, SIZE, SIZE);
+  ctx.save();
+  ctx.translate(CENTER, CENTER);
+  ctx.rotate(currentAngle);
+  ctx.drawImage(wheelCanvas, -CENTER, -CENTER);
+  ctx.restore();
+
+  // 電飾ランプ（回転しない・追いかけ点滅）
+  const LAMPS = 28;
+  const phase = (now || 0) / 120;
+  for (let i = 0; i < LAMPS; i++) {
+    const a = (i / LAMPS) * Math.PI * 2 - Math.PI / 2;
+    const x = CENTER + Math.cos(a) * LAMP_R;
+    const y = CENTER + Math.sin(a) * LAMP_R;
+    const m = (i + Math.floor(phase)) % 3;
+    const col = m === 0 ? "#fff200" : m === 1 ? "#ff2d55" : "#00e5ff";
+    ctx.beginPath();
+    ctx.arc(x, y, 11, 0, Math.PI * 2);
+    ctx.fillStyle = col;
+    ctx.shadowColor = col;
+    ctx.shadowBlur = 20;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = "rgba(255,255,255,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+renderWheelStatic();
+function drawMultiline(ctx, text, xRight, lineHeight) {
+  const lines = text.split("\n");
+  const totalH = (lines.length - 1) * lineHeight;
+  lines.forEach((ln, idx) => ctx.fillText(ln, xRight, -totalH / 2 + idx * lineHeight));
+}
+// 色を明暗調整（f<1で暗く, f>1で明るく）
+function shade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.min(255, Math.round(r * f));
+  g = Math.min(255, Math.round(g * f));
+  b = Math.min(255, Math.round(b * f));
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+
+// ===== 効果音 =====
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+function tick() {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = "square"; o.frequency.value = 1100;
+  g.gain.setValueAtTime(0.10, audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(); o.stop(audioCtx.currentTime + 0.05);
+}
+// 単音を鳴らす汎用ヘルパー（t0=開始までの秒数オフセット）
+function note(freq, t0, dur, type, vol) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime + (t0 || 0);
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || "triangle"; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol || 0.28, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+// 周波数をなめらかに変化させる（スライド音）
+function slide(f1, f2, t0, dur, type, vol) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime + (t0 || 0);
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(f1, t);
+  o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol || 0.25, t + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(audioCtx.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+
+// ===== 停止時の当たり音（複数種類からランダム再生）=====
+const WIN_SOUNDS = [
+  // 1 定番ファンファーレ（上昇アルペジオ）
+  () => { [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => note(f, i * 0.11, 0.4, "triangle", 0.28)); },
+  // 2 ジャックポット（鈴を連打）
+  () => { for (let i = 0; i < 10; i++) note(1568 + (i % 2) * 200, i * 0.06, 0.18, "square", 0.12); note(2093, 0.66, 0.5, "triangle", 0.2); },
+  // 3 きらきらチャイム（ハープ風下降→上昇）
+  () => { [1046.5, 1318.5, 1567.98, 2093, 1567.98, 1318.5].forEach((f, i) => note(f, i * 0.09, 0.5, "sine", 0.22)); },
+  // 4 トランペット風ファンファーレ（同音連打→決め）
+  () => { [392, 392, 392, 523.25].forEach((f, i) => note(f, i * 0.13, i === 3 ? 0.6 : 0.12, "sawtooth", 0.16)); note(659.25, 0.39, 0.6, "sawtooth", 0.16); },
+  // 5 かわいいピロリン（上昇スライド＋ポン）
+  () => { slide(440, 1320, 0, 0.25, "sine", 0.25); note(1760, 0.28, 0.3, "triangle", 0.25); },
+  // 6 ハッピー和音（メジャーコードを3連）
+  () => { for (let k = 0; k < 3; k++) { [523.25, 659.25, 783.99].forEach(f => note(f, k * 0.18, 0.4, "triangle", 0.14)); } note(1046.5, 0.54, 0.6, "triangle", 0.22); },
+  // 7 ゲームクリア風（マリオ的上昇）
+  () => { [659.25, 783.99, 1046.5, 1318.5, 1568, 2093].forEach((f, i) => note(f, i * 0.08, 0.3, "square", 0.13)); },
+  // 8 ベル「チーン！」（金属的な余韻）
+  () => { note(1318.5, 0, 1.2, "triangle", 0.25); note(2637, 0, 1.0, "sine", 0.12); note(1975, 0.02, 0.9, "sine", 0.1); },
+  // 9 警報→当たり（サイレン風スライド2回＋決め）
+  () => { slide(600, 1000, 0, 0.18, "sawtooth", 0.12); slide(600, 1000, 0.2, 0.18, "sawtooth", 0.12); [523.25, 783.99, 1046.5].forEach((f, i) => note(f, 0.45 + i * 0.1, 0.5, "triangle", 0.2)); },
+  // 10 口笛スライドアップ
+  () => { slide(523, 1568, 0, 0.5, "sine", 0.28); note(1568, 0.5, 0.4, "sine", 0.2); },
+];
+let lastWinSound = -1;
+function fanfare() {
+  if (!audioCtx) return;
+  let i; do { i = Math.floor(Math.random() * WIN_SOUNDS.length); } while (WIN_SOUNDS.length > 1 && i === lastWinSound);
+  lastWinSound = i;
+  WIN_SOUNDS[i]();
+}
+
+// ===== 音声読み上げ =====
+// 読み上げの誤読を補正（画面表示はそのまま、音声用テキストだけ置換）
+function readingFix(text) {
+  return text
+    .replace(/大事/g, "だいじ")   // 「おおごと」と誤読されるのを防ぐ
+    .replace(/・/g, "、");          // 中黒は読点扱いで自然に区切る
+}
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance("お題は、" + readingFix(text) + "、です。");
+  u.lang = "ja-JP"; u.rate = 1.0;
+  const ja = speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith("ja"));
+  if (ja) u.voice = ja;
+  speechSynthesis.speak(u);
+}
+if ("speechSynthesis" in window) { speechSynthesis.onvoiceschanged = () => {}; speechSynthesis.getVoices(); }
+
+// ===== 回転 =====
+const POINTER = -Math.PI / 2;
+let spinStart = 0, spinDur = 0, spinFrom = 0, spinTotal = 0, lastSeg = 0;
+function spin() {
+  if (spinning) return;
+  ensureAudio();
+  spinning = true;
+  document.getElementById("spinBtn").disabled = true;
+  const result = document.getElementById("result");
+  result.textContent = "";
+
+  const randomStop = Math.random() * Math.PI * 2;
+  const extraTurns = 2.5 + Math.random() * 1.5;
+  spinFrom = currentAngle % (Math.PI * 2);
+  const targetAngle = POINTER - randomStop;
+  spinTotal = extraTurns * Math.PI * 2 + normalizeDelta(spinFrom, targetAngle);
+  spinDur = 2800;
+  spinStart = performance.now();
+  lastSeg = currentSegIndex();
+}
+function normalizeDelta(start, target) { let d = (target - start) % (Math.PI * 2); if (d < 0) d += Math.PI * 2; return d; }
+function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+function norm2pi(a) { a %= Math.PI * 2; if (a < 0) a += Math.PI * 2; return a; }
+function currentSegIndex() {
+  const a = norm2pi(POINTER - currentAngle);
+  let acc = 0;
+  for (let i = 0; i < SEGMENTS.length; i++) { if (a >= acc && a < acc + SEGMENTS[i].angle) return i; acc += SEGMENTS[i].angle; }
+  return SEGMENTS.length - 1;
+}
+function getWinningItem() { return ITEMS[SEGMENTS[currentSegIndex()].item]; }
+
+// ===== メインループ（常時：電飾アニメ＋回転）=====
+function loop(now) {
+  if (spinning) {
+    const t = Math.min((now - spinStart) / spinDur, 1);
+    currentAngle = spinFrom + spinTotal * easeOutCubic(t);
+    const idx = currentSegIndex();
+    if (idx !== lastSeg) { lastSeg = idx; if (t < 0.985) tick(); }
+    if (t >= 1) {
+      spinning = false;
+      document.getElementById("spinBtn").disabled = false;
+      showResult(getWinningItem());
+    }
+  }
+  // 待機中は電飾の点滅が切り替わる瞬間だけ再描画（無駄な毎フレーム描画を回避）
+  const lampPhase = Math.floor((now || 0) / 120);
+  if (spinning || lampPhase !== lastLampPhase) {
+    drawWheel(now);
+    lastLampPhase = lampPhase;
+  }
+  updateConfetti();
+  requestAnimationFrame(loop);
+}
+let lastLampPhase = -1;
+
+// ===== パーティクルエンジン =====
+const conf = document.getElementById("confetti");
+const cctx = conf.getContext("2d");
+let particles = [];
+let rings = [];
+function resizeConfetti() { conf.width = window.innerWidth; conf.height = window.innerHeight; }
+window.addEventListener("resize", resizeConfetti);
+resizeConfetti();
+const C = ["#ff2d55", "#ffd000", "#00e5ff", "#2ed573", "#ff00de", "#ffffff", "#ff8a00"];
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+function add(o) {
+  particles.push(Object.assign({
+    x: 0, y: 0, vx: 0, vy: 0, gravity: 0.08, drag: 0.99,
+    size: 8, color: "#fff", rot: Math.random() * 6.28, vr: rnd(-0.3, 0.3),
+    shape: "rect", emoji: null, life: null, maxLife: null, glow: null, sway: 0, swayPhase: 0,
+  }, o));
+}
+// 上から降らせる
+function emitTop(n, fn) { for (let i = 0; i < n; i++) add(Object.assign({ x: Math.random() * conf.width, y: -20 - Math.random() * conf.height * 0.3, vx: rnd(-3, 3), vy: rnd(2, 7) }, fn(i))); }
+// 一点から全方向に放つ
+function emitBurst(cx, cy, n, fn) { for (let i = 0; i < n; i++) { const a = Math.random() * 6.283, sp = rnd(3, 12); add(Object.assign({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp }, fn(i, a))); } }
+function addRing(cx, cy, color, maxR, w) { rings.push({ x: cx, y: cy, r: 0, vr: rnd(7, 12), max: maxR, color, w: w || 6, life: 1 }); }
+const CX = () => conf.width / 2, CY = () => conf.height / 2;
+
+// 描画プリミティブ
+function star(r) { cctx.beginPath(); for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; cctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); const a2 = a + Math.PI / 5; cctx.lineTo(Math.cos(a2) * r * 0.45, Math.sin(a2) * r * 0.45); } cctx.closePath(); cctx.fill(); }
+function heart(s) { cctx.beginPath(); cctx.moveTo(0, s * 0.3); cctx.bezierCurveTo(0, -s * 0.12, -s * 0.5, -s * 0.12, -s * 0.5, s * 0.25); cctx.bezierCurveTo(-s * 0.5, s * 0.62, 0, s * 0.82, 0, s); cctx.bezierCurveTo(0, s * 0.82, s * 0.5, s * 0.62, s * 0.5, s * 0.25); cctx.bezierCurveTo(s * 0.5, -s * 0.12, 0, -s * 0.12, 0, s * 0.3); cctx.closePath(); cctx.fill(); }
+
+let confettiCleared = false;
+function updateConfetti() {
+  if (particles.length === 0 && rings.length === 0) {
+    if (!confettiCleared) { cctx.clearRect(0, 0, conf.width, conf.height); confettiCleared = true; }
+    return;
+  }
+  confettiCleared = false;
+  cctx.clearRect(0, 0, conf.width, conf.height);
+  // リング波
+  for (const r of rings) { r.r += r.vr; r.life = 1 - r.r / r.max; }
+  rings = rings.filter(r => r.r < r.max);
+  for (const r of rings) {
+    cctx.save();
+    cctx.globalAlpha = Math.max(0, r.life);
+    cctx.strokeStyle = r.color; cctx.lineWidth = r.w;
+    cctx.shadowColor = r.color; cctx.shadowBlur = 18;
+    cctx.beginPath(); cctx.arc(r.x, r.y, r.r, 0, 6.283); cctx.stroke();
+    cctx.restore();
+  }
+  // 粒子
+  for (const p of particles) {
+    p.vy += p.gravity; p.vx *= p.drag; p.vy *= p.drag;
+    p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+    if (p.sway) { p.swayPhase += 0.1; p.x += Math.sin(p.swayPhase) * p.sway; }
+    if (p.life != null) p.life--;
+    cctx.save();
+    cctx.translate(p.x, p.y);
+    cctx.rotate(p.rot);
+    cctx.globalAlpha = (p.life != null && p.maxLife) ? Math.max(0, p.life / p.maxLife) : 1;
+    if (p.glow) { cctx.shadowColor = p.glow; cctx.shadowBlur = 16; }
+    cctx.fillStyle = p.color;
+    if (p.emoji) { cctx.font = p.size + "px serif"; cctx.textAlign = "center"; cctx.textBaseline = "middle"; cctx.fillText(p.emoji, 0, 0); }
+    else if (p.shape === "rect") cctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+    else if (p.shape === "circle") { cctx.beginPath(); cctx.arc(0, 0, p.size / 2, 0, 6.283); cctx.fill(); }
+    else if (p.shape === "star") star(p.size / 2);
+    else if (p.shape === "heart") heart(p.size / 2);
+    else if (p.shape === "streamer") cctx.fillRect(-p.size * 0.12, -p.size, p.size * 0.24, p.size * 2);
+    cctx.restore();
+  }
+  particles = particles.filter(p => (p.life == null || p.life > 0) && p.y < conf.height + 60 && p.y > -conf.height && p.x > -100 && p.x < conf.width + 100);
+}
+
+// ===== 20種類の当たりエフェクト =====
+function setFlash(col) { flash.style.background = col; flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go"); }
+
+const EFFECTS = [
+  // 1 定番カラフル紙吹雪
+  () => { setFlash("#fff"); emitTop(200, () => ({ color: pick(C), shape: Math.random() < 0.5 ? "rect" : "circle", size: rnd(6, 14) })); },
+  // 2 ゴールドラッシュ
+  () => { setFlash("#fff4c0"); emitTop(220, () => ({ color: pick(["#ffd000", "#ffea70", "#ffb000", "#fff5d0"]), shape: "rect", size: rnd(7, 14), glow: "#ffd000" })); },
+  // 3 両サイドからキャノン
+  () => { setFlash("#fff"); for (let s of [-1, 1]) for (let i = 0; i < 90; i++) { const a = (s < 0 ? 0 : Math.PI) + rnd(-0.5, 0.5); const sp = rnd(10, 20); add({ x: s < 0 ? 0 : conf.width, y: conf.height * 0.78, vx: Math.cos(a) * sp * -s, vy: -Math.abs(Math.sin(a) * sp) - rnd(4, 10), color: pick(C), shape: Math.random() < 0.5 ? "rect" : "circle", size: rnd(6, 13) }); } },
+  // 4 複数花火
+  () => { setFlash("#ffe0f5"); for (let k = 0; k < 5; k++) { const x = rnd(conf.width * 0.2, conf.width * 0.8), y = rnd(conf.height * 0.2, conf.height * 0.5), col = pick(C); addRing(x, y, col, 220); emitBurst(x, y, 50, () => ({ color: col, shape: "circle", size: rnd(4, 9), gravity: 0.06, glow: col })); } },
+  // 5 スターシャワー
+  () => { setFlash("#fff7d0"); emitTop(160, () => ({ color: pick(["#ffd000", "#fff", "#ffea70"]), shape: "star", size: rnd(14, 26), glow: "#ffd000", vr: rnd(-0.15, 0.15) })); },
+  // 6 ハートシャワー
+  () => { setFlash("#ffd6e6"); emitTop(150, () => ({ color: pick(["#ff2d55", "#ff7eb3", "#ff00de", "#ff5e8a"]), shape: "heart", size: rnd(16, 30), glow: "#ff2d55", sway: rnd(0.5, 1.5), vr: rnd(-0.1, 0.1) })); },
+  // 7 桜吹雪
+  () => { setFlash("#ffe9f2"); emitTop(180, () => ({ color: pick(["#ffb7d5", "#ffc8e0", "#ff9ec4", "#fff0f6"]), shape: "circle", size: rnd(8, 16), gravity: 0.03, drag: 0.995, sway: rnd(1, 2.5), vy: rnd(1, 3) })); },
+  // 8 虹色リング波
+  () => { setFlash("#fff"); const cols = ["#ff2d55", "#ff8a00", "#ffd000", "#2ed573", "#00e5ff", "#ff00de"]; cols.forEach((c, i) => setTimeout(() => addRing(CX(), CY(), c, Math.max(conf.width, conf.height)), i * 110)); emitBurst(CX(), CY(), 60, () => ({ color: pick(cols), shape: "circle", size: rnd(5, 10), glow: "#fff" })); },
+  // 9 絵文字爆発
+  () => { setFlash("#fff"); emitBurst(CX(), CY(), 90, () => ({ emoji: pick(["🎉", "🎊", "🥳", "✨", "🌟", "🎈"]), size: rnd(26, 48), gravity: 0.05 })); },
+  // 10 紙テープ（ストリーマー）
+  () => { setFlash("#fff"); emitTop(120, () => ({ color: pick(C), shape: "streamer", size: rnd(12, 22), gravity: 0.04, drag: 0.98, sway: rnd(1, 3), vr: rnd(-0.4, 0.4) })); },
+  // 11 キラキラ星（全画面点滅）
+  () => { setFlash("#fff"); for (let i = 0; i < 160; i++) add({ x: Math.random() * conf.width, y: Math.random() * conf.height, vx: 0, vy: 0, gravity: 0, drag: 1, shape: "star", size: rnd(8, 22), color: pick(["#fff", "#ffd000", "#00e5ff", "#ff00de"]), glow: "#fff", life: rnd(30, 80), maxLife: 80, vr: rnd(-0.1, 0.1) }); },
+  // 12 雪
+  () => { setFlash("#eaf6ff"); emitTop(200, () => ({ color: "#ffffff", shape: "circle", size: rnd(4, 11), gravity: 0.015, drag: 0.99, sway: rnd(0.6, 1.8), vy: rnd(1, 2.5), glow: "#cfeaff" })); },
+  // 13 ネオンオーブ
+  () => { setFlash("#1a0033"); emitBurst(CX(), CY(), 120, () => { const c = pick(["#ff00de", "#00e5ff", "#39ff14", "#ff2d55", "#ffd000"]); return { color: c, glow: c, shape: "circle", size: rnd(8, 18), gravity: 0.04 }; }); },
+  // 14 お金が舞う
+  () => { setFlash("#fff8c0"); emitTop(120, () => ({ emoji: pick(["💴", "💰", "🤑", "💵", "🪙"]), size: rnd(26, 44), gravity: 0.06, sway: rnd(0.8, 2), vr: rnd(-0.2, 0.2) })); },
+  // 15 泡が上昇
+  () => { setFlash("#dffaff"); for (let i = 0; i < 120; i++) add({ x: Math.random() * conf.width, y: conf.height + rnd(0, conf.height * 0.4), vx: rnd(-1, 1), vy: rnd(-2, -5), gravity: -0.01, drag: 1, shape: "circle", size: rnd(8, 28), color: "rgba(255,255,255,0.5)", glow: "#9fe8ff", sway: rnd(0.5, 1.5) }); },
+  // 16 超大量ストーム
+  () => { setFlash("#fff"); emitTop(420, () => ({ color: pick(C), shape: Math.random() < 0.5 ? "rect" : "circle", size: rnd(5, 12), vy: rnd(4, 10) })); },
+  // 17 渦巻き
+  () => { setFlash("#fff"); for (let i = 0; i < 130; i++) { const a = i * 0.3, sp = rnd(5, 11); add({ x: CX(), y: CY(), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, gravity: 0.02, drag: 0.97, color: pick(C), shape: "circle", size: rnd(5, 11), vr: 0.4, glow: pick(C) }); } },
+  // 18 スポットライト＋金紙吹雪
+  () => { setFlash("#fff0b0"); addRing(CX(), CY(), "#ffd000", Math.max(conf.width, conf.height), 30); emitTop(160, () => ({ color: pick(["#ffd000", "#fff", "#ffea70"]), shape: Math.random() < 0.5 ? "star" : "rect", size: rnd(8, 18), glow: "#ffd000" })); },
+  // 19 特大中央花火
+  () => { setFlash("#fff"); const col = pick(C); addRing(CX(), CY(), col, 320, 12); emitBurst(CX(), CY(), 160, () => ({ color: pick(C), shape: pick(["circle", "star"]), size: rnd(6, 16), gravity: 0.05, glow: pick(C), vr: rnd(-0.3, 0.3) })); },
+  // 20 全部入りパーティ
+  () => { setFlash("#fff"); emitTop(140, () => ({ color: pick(C), shape: pick(["rect", "circle", "star"]), size: rnd(6, 16) })); emitBurst(CX(), CY(), 50, () => ({ emoji: pick(["🎉", "🎊", "✨", "🥳"]), size: rnd(28, 46), gravity: 0.05 })); addRing(CX(), CY(), "#ff00de", 280); },
+  // 21 虹色グラデ紙吹雪（横位置で色が変わる）
+  () => { setFlash("#fff"); const cols = ["#ff2d55", "#ff8a00", "#ffd000", "#2ed573", "#00e5ff", "#ff00de"]; emitTop(220, () => ({ color: cols[Math.floor(Math.random() * cols.length)], shape: "rect", size: rnd(7, 14) })); },
+  // 22 ダイヤモンドシャワー
+  () => { setFlash("#e6fbff"); emitTop(130, () => ({ emoji: pick(["💎", "🔷", "🔹", "✨"]), size: rnd(24, 44), gravity: 0.05, vr: rnd(-0.2, 0.2) })); },
+  // 23 風船が上昇
+  () => { setFlash("#fff0fa"); for (let i = 0; i < 70; i++) add({ x: Math.random() * conf.width, y: conf.height + rnd(0, conf.height * 0.5), vx: rnd(-0.6, 0.6), vy: rnd(-2, -4), gravity: -0.005, drag: 1, emoji: pick(["🎈", "🎈", "🎀"]), size: rnd(34, 56), sway: rnd(0.5, 1.5) }); },
+  // 24 稲妻＆閃光
+  () => { setFlash("#ffffff"); setTimeout(() => setFlash("#cfe8ff"), 140); setTimeout(() => setFlash("#ffffff"), 280); emitTop(80, () => ({ emoji: "⚡", size: rnd(28, 50), gravity: 0.1, vy: rnd(6, 12) })); emitBurst(CX(), CY(), 40, () => ({ color: "#fff", shape: "streamer", size: rnd(14, 26), glow: "#9fd4ff" })); },
+  // 25 クラッカー（下2点から斜め上に絵文字）
+  () => { setFlash("#fff"); for (let s of [-1, 1]) emitBurst(s < 0 ? conf.width * 0.15 : conf.width * 0.85, conf.height * 0.8, 50, (i) => { const a = (s < 0 ? -1.0 : -2.1) + rnd(-0.3, 0.3), sp = rnd(10, 20); return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, emoji: pick(["🎉", "🎊", "✨", "🌟"]), size: rnd(22, 40), gravity: 0.12 }; }); },
+  // 26 炎が燃え上がる
+  () => { setFlash("#ff8a00"); for (let i = 0; i < 110; i++) add({ x: Math.random() * conf.width, y: conf.height + rnd(0, 60), vx: rnd(-1, 1), vy: rnd(-3, -7), gravity: -0.02, drag: 1, emoji: pick(["🔥", "🔥", "✨"]), size: rnd(24, 46), sway: rnd(0.5, 1.2) }); },
+  // 27 流れ星
+  () => { setFlash("#0a0a30"); for (let i = 0; i < 70; i++) add({ x: rnd(-conf.width * 0.2, conf.width), y: rnd(-conf.height * 0.4, 0), vx: rnd(6, 12), vy: rnd(6, 12), gravity: 0, drag: 1, shape: "star", size: rnd(12, 24), color: pick(["#fff", "#ffd000", "#9fd4ff"]), glow: "#fff", vr: 0.2 }); },
+  // 28 ネオン四角の雨
+  () => { setFlash("#12002e"); emitTop(180, () => { const c = pick(["#ff00de", "#00e5ff", "#39ff14", "#ffd000", "#ff2d55"]); return { color: c, glow: c, shape: "rect", size: rnd(8, 16), vy: rnd(4, 9) }; }); },
+  // 29 万華鏡リング
+  () => { setFlash("#fff"); const cols = ["#ff2d55", "#ffd000", "#00e5ff", "#ff00de", "#2ed573", "#ff8a00"]; for (let k = 0; k < 8; k++) setTimeout(() => addRing(CX(), CY(), cols[k % cols.length], Math.max(conf.width, conf.height), rnd(4, 14)), k * 90); },
+  // 30 ハート大爆発
+  () => { setFlash("#ffd6e6"); emitBurst(CX(), CY(), 120, () => ({ shape: "heart", size: rnd(16, 36), color: pick(["#ff2d55", "#ff7eb3", "#ff00de", "#ff5e8a"]), glow: "#ff2d55", gravity: 0.05, vr: rnd(-0.2, 0.2) })); },
+  // 31 クローバー＆ラッキー
+  () => { setFlash("#e9ffe9"); emitTop(120, () => ({ emoji: pick(["🍀", "☘️", "🌟", "✨"]), size: rnd(24, 42), gravity: 0.05, sway: rnd(0.5, 1.5), vr: rnd(-0.2, 0.2) })); },
+  // 32 金銀コンビ
+  () => { setFlash("#fffbe0"); emitTop(200, () => ({ color: pick(["#ffd000", "#ffea70", "#e8e8e8", "#ffffff", "#c0c0c0"]), shape: Math.random() < 0.5 ? "rect" : "star", size: rnd(7, 16), glow: pick(["#ffd000", "#dddddd"]) })); },
+  // 33 にぎやか絵文字シャワー
+  () => { setFlash("#fff"); emitTop(120, () => ({ emoji: pick(["😆", "🎵", "🌈", "🦄", "⭐", "🍭", "🎁"]), size: rnd(26, 46), gravity: 0.06, sway: rnd(0.5, 1.5), vr: rnd(-0.2, 0.2) })); },
+  // 34 パステル紙吹雪
+  () => { setFlash("#fff5fb"); emitTop(200, () => ({ color: pick(["#ffb7d5", "#b5ead7", "#c7ceea", "#ffdac1", "#e2f0cb", "#ffffd1"]), shape: Math.random() < 0.5 ? "rect" : "circle", size: rnd(8, 16) })); },
+  // 35 上下からダブル
+  () => { setFlash("#fff"); emitTop(120, () => ({ color: pick(C), shape: "rect", size: rnd(6, 13) })); for (let i = 0; i < 100; i++) add({ x: Math.random() * conf.width, y: conf.height + 20, vx: rnd(-2, 2), vy: rnd(-9, -15), gravity: 0.18, color: pick(C), shape: "circle", size: rnd(6, 13) }); },
+  // 36 ミニ花火連打
+  () => { setFlash("#1a0033"); for (let k = 0; k < 10; k++) setTimeout(() => { const x = rnd(conf.width * 0.1, conf.width * 0.9), y = rnd(conf.height * 0.15, conf.height * 0.6), c = pick(C); addRing(x, y, c, 140, 5); emitBurst(x, y, 28, () => ({ color: c, glow: c, shape: "circle", size: rnd(4, 8), gravity: 0.05 })); }, k * 130); },
+  // 37 スパークル放射
+  () => { setFlash("#fff"); emitBurst(CX(), CY(), 140, (i, a) => { const sp = rnd(4, 14); return { vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, shape: "star", size: rnd(8, 20), color: pick(["#fff", "#ffd000", "#00e5ff", "#ff00de"]), glow: "#fff", gravity: 0.02, drag: 0.96, vr: 0.3 }; }); },
+  // 38 雪の結晶
+  () => { setFlash("#eaf6ff"); emitTop(120, () => ({ emoji: pick(["❄️", "❅", "✻", "✺"]), size: rnd(20, 40), gravity: 0.012, drag: 0.99, sway: rnd(0.8, 2), vy: rnd(1, 2.5), color: "#fff", vr: rnd(-0.1, 0.1) })); },
+  // 39 虹リング＋ハート
+  () => { setFlash("#fff"); ["#ff2d55", "#ffd000", "#00e5ff", "#ff00de"].forEach((c, i) => setTimeout(() => addRing(CX(), CY(), c, Math.max(conf.width, conf.height)), i * 120)); emitTop(120, () => ({ shape: "heart", size: rnd(16, 30), color: pick(["#ff2d55", "#ff7eb3", "#ff00de"]), glow: "#ff2d55", sway: rnd(0.5, 1.2) })); },
+  // 40 特大絵文字ドーン
+  () => { setFlash("#fff"); emitBurst(CX(), CY(), 12, (i, a) => ({ x: CX(), y: CY(), vx: Math.cos(a) * rnd(2, 6), vy: Math.sin(a) * rnd(2, 6), emoji: pick(["🎉", "🎊", "🥳", "🌟", "💯", "👏", "🏆"]), size: rnd(70, 120), gravity: 0.03, drag: 0.95 })); emitTop(80, () => ({ color: pick(C), shape: "circle", size: rnd(6, 12) })); },
+];
+let lastEffect = -1;
+function playRandomEffect() {
+  let i; do { i = Math.floor(Math.random() * EFFECTS.length); } while (EFFECTS.length > 1 && i === lastEffect);
+  lastEffect = i;
+  EFFECTS[i]();
+}
+
+// ===== 結果表示 =====
+const overlay = document.getElementById("overlay");
+const flash = document.getElementById("flash");
+function overlayOpen() { return overlay.classList.contains("show"); }
+function closeOverlay() { overlay.classList.remove("show"); }
+function showResult(item) {
+  document.getElementById("result").textContent = "🎯 " + item.full;
+  document.getElementById("ovTopic").textContent = item.title || item.full;
+  // 「全部」のときは、話す3つのお題を下に一覧表示
+  const list = document.getElementById("ovList");
+  if (item.all) {
+    list.innerHTML = item.all.map((t, i) => "<div><span>" + (i + 1) + "</span>" + t + "</div>").join("");
+    list.style.display = "flex";
+  } else {
+    list.style.display = "none";
+  }
+  // オーバーレイ → ランダム当たり演出 → 音
+  overlay.classList.add("show");
+  playRandomEffect();
+  fanfare();
+  setTimeout(() => speak(item.full), 600);
+}
+
+// ===== イベント =====
+document.getElementById("spinBtn").addEventListener("click", (e) => { e.stopPropagation(); if (!overlayOpen()) spin(); });
+document.body.addEventListener("click", () => { if (overlayOpen()) closeOverlay(); else spin(); });
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); if (overlayOpen()) closeOverlay(); else spin(); }
+});
+
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
