@@ -50,8 +50,10 @@
 
   .stage {
     position: relative;
-    width: min(86vmin, 880px);
-    height: min(86vmin, 880px);
+    /* 横幅・縦の使える高さ・最大値の一番小さい値に自動調整（上が切れないように）*/
+    --stage: min(92vw, calc(100vh - 210px), 880px);
+    width: var(--stage);
+    height: var(--stage);
   }
   .pointer {
     position: absolute;
