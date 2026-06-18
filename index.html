@@ -241,19 +241,22 @@ function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = Math.fl
 // たまに「どれか1つが極端に大きい」偏りバージョンも発生させる。
 function randomizeProbs() {
   const r = (a, b) => a + Math.random() * (b - a);
+  const ALL = ITEMS.length - 1; // 「ぜんぶ」は最後の要素
   const roll = Math.random();
   if (roll < 0.22) {
-    // 超かたより：1つだけ巨大、残りは極小（約22%）
-    const big = Math.floor(Math.random() * ITEMS.length);
+    // 超かたより：1つだけ巨大、残りは極小（約22%）※「ぜんぶ」は巨大化の対象外
+    const big = Math.floor(Math.random() * ALL);
     ITEMS.forEach((it, i) => { it.prob = (i === big) ? r(11, 18) : r(0.8, 2); });
   } else if (roll < 0.45) {
-    // ややかたより：1つが大きめ（約23%）
-    const big = Math.floor(Math.random() * ITEMS.length);
+    // ややかたより：1つが大きめ（約23%）※「ぜんぶ」は大きめ化の対象外
+    const big = Math.floor(Math.random() * ALL);
     ITEMS.forEach((it, i) => { it.prob = (i === big) ? r(6, 9) : r(2, 4); });
   } else {
     // 通常：ほどよくバラける（約55%）
     ITEMS.forEach(it => { it.prob = r(2.5, 6); });
   }
+  // 「ぜんぶ」は常に控えめサイズに固定（マスが大きくなりにくく＝当たりにくく）
+  ITEMS[ALL].prob = r(1, 2.5);
 }
 randomizeProbs();
 
