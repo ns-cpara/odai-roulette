@@ -381,12 +381,14 @@ function ensureAudio() {
 }
 function tick() {
   if (!audioCtx) return;
+  const t = audioCtx.currentTime;
   const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-  o.type = "square"; o.frequency.value = 1100;
-  g.gain.setValueAtTime(0.10, audioCtx.currentTime);
-  g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+  // 角のとれた柔らかい「コッ」という音（三角波・低め・小音量・短い減衰）
+  o.type = "triangle"; o.frequency.value = 660;
+  g.gain.setValueAtTime(0.05, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
   o.connect(g); g.connect(audioCtx.destination);
-  o.start(); o.stop(audioCtx.currentTime + 0.05);
+  o.start(t); o.stop(t + 0.03);
 }
 // 単音を鳴らす汎用ヘルパー（t0=開始までの秒数オフセット）
 function note(freq, t0, dur, type, vol) {
